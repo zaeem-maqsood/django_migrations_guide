@@ -22,6 +22,7 @@ Now that we have our migration file we need to make sure we have some things che
 
 1. Does this migration need a sperate `RunPython` operation?
 2. If so do we have our forward and reverse functions written?
+3. Is this migration potentially irreversible?
 
 ### Example Scenario
 Say we are adding a non-nullable, unique field named slug to an existing model called Post.
@@ -194,6 +195,33 @@ Operations to perform:
 Running migrations:
   Applying blog.0004_0004_post_slug_unique... OK
 ```
+
+## Testing Migration Files
+
+Testing migrations is not a frequent thing in django land. But, sometimes it is totally required. When?
+
+When we do complex schema or data changes and what to be sure that existing data won't be corrupted. We might also want to be sure that all migrations can be safely rolled back. And as a final touch we want to be sure that migrations are in the correct order and have correct dependencies.
+
+So how should we test our migrations? `django-test-migrations` to the rescue. [Django Test Migrations](https://github.com/wemake-services/django-test-migrations)
+This package allows us to test migrations before they are applied and even test the reverse migraiton if we had to reverse a migration for any reason.
+
+## When To Reverse A Migration VS Forward Change A Migration
+
+## Unapplying Migrations
+Now you know how to make changes to your database schema by creating and applying migrations. At some point, you might want to undo changes and switch back to an earlier database schema because you:
+
+1. Want to test a migration a colleague wrote
+2. Realize that a change you made was a bad idea
+3. Work on multiple features with different database changes in parallel
+4. Want to restore a backup that was created when the database still had an older schema
+
+Luckily, migrations don’t have to be a one-way street. In many cases, the effects of a migration can be undone by unapplying a migration. To unapply a migration, you have to call migrate with the name of the app and the name of the migration before the migration you want to unapply.
+
+
+## Listing Out Migrations
+```./manage.py showmigrations```
+
+This lists all apps in the project and the migrations associated with each app. Also, it will put a big X next to the migrations that have already been applied.
 
 ## The Django Migration Table
 Django keeps a record of all the migrations applied in a table called `django_migrations`
