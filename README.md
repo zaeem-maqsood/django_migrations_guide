@@ -45,7 +45,7 @@ class Post(models.Model):
 Create the migration:
 
 ```
-python manage.py makemigrations blog
+python manage.py makemigrations blog --name post_slug
 
 Migrations for 'blog':
   blog/migrations/0002_post_slug.py
@@ -68,10 +68,131 @@ At this point, the database already have the slug column.
 Create an empty migration with the following command:
    
 ```   
-python manage.py makemigrations blog --empty
+python manage.py makemigrations blog --empty --name post_slug_not_nullable
 
 Migrations for 'blog':
-  blog/migrations/0003_auto_20170926_1105.py
+  blog/migrations/0003_post_slug_not_nullable.py
+
+```
+
+Now open the file 0003_post_slug_not_nullable.py, and it should have the following contents:
+
+```python
+from __future__ import unicode_literals
+from django.db import migrations
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('blog', '0002_post_slug'),
+    ]
+
+    operations = [
+    ]
+    
+```
+
+Then here in this file, we can create a function that can be executed by the `RunPython` command:
+
+```python
+from __future__ import unicode_literals
+
+from django.db import migrations
+from django.utils.text import slugify
+
+
+def slugify_title(apps, schema_editor):
+    '''
+    We can't import the Post model directly as it may be a newer
+    version than this migration expects. We use the historical version.
+    '''
+    Post = apps.get_model('blog', 'Post')
+    for post in Post.objects.all():
+        post.slug = slugify(post.title)
+        post.save()
+        
+def reverse_slugify_title(apps, schema_editor):
+    '''
+    Remove all the values in the slugify field
+    '''
+    Post = apps.get_model('blog', 'Post')
+    for post in Post.objects.all():
+        post.slug = None
+        post.save()
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('blog', '0002_post_slug'),
+    ]
+
+    operations = [
+        migrations.RunPython(slugify_title, reverse_slugify_title),
+    ]
+```
+
+Save the file and execute the migration as you would do with a regular model migration:
+
+```
+python manage.py migrate blog
+Operations to perform:
+  Apply all migrations: blog
+Running migrations:
+  Applying blog.0003_post_slug_not_nullable... OK
+```
+
+Every Post entry have a value, so we can safely change the switch from null=True to null=False. And since all the values are unique, we can also add the unique=True flag.
+
+```python
+from django.db import models
+
+class Post(models.Model):
+    title = models.CharField(max_length=255)
+    date = models.DateTimeField(auto_now_add=True)
+    content = models.TextField()
+    slug = models.SlugField(null=False, unique=True)
+
+    def __str__(self):
+        return self.title
+```
+
+Create a new migration:
+```
+python manage.py makemigrations blog --name post_slug_unique
+```
+
+This time you will see the following prompt:
+
+```
+You are trying to change the nullable field 'slug' on post to non-nullable without a default; we can't do that
+(the database needs something to populate existing rows).
+Please select a fix:
+ 1) Provide a one-off default now (will be set on all existing rows with a null value for this column)
+ 2) Ignore for now, and let me handle existing rows with NULL myself (e.g. because you added a RunPython or RunSQL
+ operation to handle NULL values in a previous data migration)
+ 3) Quit, and let me add a default in models.py
+Select an option:
+```
+
+Select option 2 by typing “2” in the terminal.
+
+```
+Migrations for 'blog':
+  blog/migrations/0004_post_slug_unique.py
+    - Alter field slug on post
+```
+
+Creating a reverse migration method is not needed for this migration as Django will simply remove the unique constraint on the field.
+
+Now we can safely apply the migration:
+```
+python manage.py migrate blog
+Operations to perform:
+  Apply all migrations: blog
+Running migrations:
+  Applying blog.0004_0004_post_slug_unique... OK
 ```
 
 ## The Django Migration Table
